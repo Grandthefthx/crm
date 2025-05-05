@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block submit_buttons_bottom %}
+    {{ block.super }}
+    {% if not original.sent %}
+        <a class="button" href="./send/">Отправить</a>
+    {% endif %}
+{% endblock %}
