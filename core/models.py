@@ -1,5 +1,8 @@
+
 from django.db import models
 
+def upload_to_payment(instance, filename):
+    return f"uploads/{instance.client.user_id}/{filename}"
 
 class TelegramClient(models.Model):
     user_id = models.BigIntegerField(unique=True)
@@ -38,6 +41,7 @@ class SupportMessage(models.Model):
 
 class BroadcastMessage(models.Model):
     text = models.TextField("Текст сообщения")
+    comment = models.CharField("Комментарий", max_length=255, default="Без названия")
     recipients = models.ManyToManyField(TelegramClient, verbose_name="Получатели")
     created_at = models.DateTimeField(auto_now_add=True)
     sent = models.BooleanField(default=False)
@@ -48,6 +52,7 @@ class BroadcastMessage(models.Model):
 
     def __str__(self):
         return f"Рассылка #{self.id} — {self.created_at.strftime('%d.%m.%Y %H:%M')}"
+
 
 class BroadcastDelivery(models.Model):
     message = models.ForeignKey(BroadcastMessage, on_delete=models.CASCADE, related_name='deliveries')
@@ -66,3 +71,16 @@ class BroadcastDelivery(models.Model):
 
     def __str__(self):
         return f"{self.recipient} ← {self.message} [{self.status}]"
+
+
+class PaymentUpload(models.Model):
+    client = models.ForeignKey(TelegramClient, on_delete=models.CASCADE)
+    file = models.ImageField(upload_to=upload_to_payment, blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Загруженный чек"
+        verbose_name_plural = "Загруженные чеки"
+
+    def __str__(self):
+        return f"Чек от {self.client.username or self.client.user_id} — {self.uploaded_at.strftime('%d.%m.%Y %H:%M')}"
