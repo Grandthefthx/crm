@@ -1,14 +1,15 @@
-from django.contrib import admin
-from django.utils.html import format_html
-from django.urls import path
-from django.shortcuts import redirect
-from django.contrib import messages
-import time
 import asyncio
 import csv
+import logging
+import time
+import traceback
+from django.contrib import admin, messages
 from django.http import HttpResponse
-from .forms import BroadcastMessageForm
+from django.shortcuts import redirect
+from django.urls import path, reverse
+from django.utils.html import format_html
 
+from .forms import BroadcastMessageForm
 from .models import (
     TelegramClient,
     ClientAction,
@@ -18,15 +19,20 @@ from .models import (
     PaymentUpload,
 )
 
+logger = logging.getLogger("broadcast")
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler("broadcast.log")
+handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
+logger.addHandler(handler)
+
 
 class BroadcastDeliveryInline(admin.TabularInline):
     model = BroadcastDelivery
     extra = 0
-    readonly_fields = ("recipient", "sent_at", "status", "error_message")
+    readonly_fields = ("recipient", "status", "sent_at", "error_message")
     can_delete = False
+    show_change_link = True
 
-class BroadcastMessageAdmin(admin.ModelAdmin):
-    form = BroadcastMessageForm
 
 @admin.register(TelegramClient)
 class TelegramClientAdmin(admin.ModelAdmin):
@@ -55,11 +61,13 @@ class SupportMessageAdmin(admin.ModelAdmin):
 
 @admin.register(BroadcastMessage)
 class BroadcastMessageAdmin(admin.ModelAdmin):
+    form = BroadcastMessageForm
     list_display = ("id", "short_text", "comment", "created_at", "sent", "send_button")
     search_fields = ("text", "comment")
     list_filter = ("sent", "created_at")
     ordering = ("-created_at",)
     actions = ["export_csv"]
+    inlines = [BroadcastDeliveryInline]
 
     def short_text(self, obj):
         return obj.text[:40] + "..." if len(obj.text) > 40 else obj.text
@@ -73,7 +81,6 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
             )
         return "Отправлено"
     send_button.short_description = "Действие"
-    send_button.allow_tags = True
 
     def get_urls(self):
         urls = super().get_urls()
@@ -82,46 +89,90 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
         ]
         return custom + urls
 
+    def run_async(self, coro):
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return asyncio.ensure_future(coro)
+            return loop.run_until_complete(coro)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(coro)
+
     def send_broadcast(self, request, pk):
         from django.conf import settings
         from telegram import Bot
+        from telegram.error import TelegramError, NetworkError
 
         msg = BroadcastMessage.objects.get(pk=pk)
         bot = Bot(token=settings.TELEGRAM_BOT_TOKEN_PRIVATE)
 
         success, fail = 0, 0
 
+        async def send_telegram_message(bot_instance, user_id, text):
+            await bot_instance.send_message(chat_id=user_id, text=text, parse_mode='HTML')
+
         for user in msg.recipients.all():
+            print(f"📨 Отправка пользователю: {user.user_id} | @{user.username or '-'}")
+
             if not user.user_id:
-                BroadcastDelivery.objects.create(
+                delivery, _ = BroadcastDelivery.objects.get_or_create(
                     message=msg,
                     recipient=user,
-                    status='failed',
-                    error_message='Нет user_id'
+                    defaults={'status': 'failed', 'error_message': 'Нет user_id'}
                 )
+                delivery.status = 'failed'
+                delivery.error_message = 'Нет user_id'
+                delivery.save()
                 fail += 1
                 continue
 
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(bot.send_message(chat_id=user.user_id, text=msg.text))
-                loop.close()
+                self.run_async(send_telegram_message(bot, user.user_id, msg.text))
+
+                delivery, created = BroadcastDelivery.objects.get_or_create(
+                    message=msg,
+                    recipient=user,
+                    defaults={'status': 'sent'}
+                )
+                if not created:
+                    delivery.status = 'sent'
+                    delivery.error_message = ''
+                    delivery.save()
+
+                success += 1
                 time.sleep(0.3)
 
-                BroadcastDelivery.objects.create(
+            except (NetworkError, TelegramError) as e:
+                error_msg = f"Telegram API error: {str(e)}"
+                print(f"❌ Ошибка Telegram: {error_msg}")
+
+                delivery, created = BroadcastDelivery.objects.get_or_create(
                     message=msg,
                     recipient=user,
-                    status='sent'
+                    defaults={'status': 'failed', 'error_message': error_msg}
                 )
-                success += 1
+                if not created:
+                    delivery.status = 'failed'
+                    delivery.error_message = error_msg
+                    delivery.save()
+                fail += 1
+
             except Exception as e:
-                BroadcastDelivery.objects.create(
+                generic_error = f"{type(e).__name__}: {str(e)}"
+                print(f"🔥 Неизвестная ошибка: {generic_error}")
+                traceback.print_exc()
+
+                delivery, created = BroadcastDelivery.objects.get_or_create(
                     message=msg,
                     recipient=user,
-                    status='failed',
-                    error_message=str(e)
+                    defaults={'status': 'failed', 'error_message': generic_error}
                 )
+                if not created:
+                    delivery.status = 'failed'
+                    delivery.error_message = generic_error
+                    delivery.save()
                 fail += 1
 
         msg.sent = True
@@ -129,9 +180,9 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
 
         messages.success(
             request,
-            f"✅ Отправлено: {success}, ошибок: {fail}"
+            f"✅ Broadcast завершён: успешно — {success}, с ошибкой — {fail}"
         )
-        return redirect("..")
+        return redirect(reverse("admin:core_broadcastmessage_changelist"))
 
     def export_csv(self, request, queryset):
         response = HttpResponse(content_type='text/csv')
@@ -149,9 +200,9 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
 
 @admin.register(BroadcastDelivery)
 class BroadcastDeliveryAdmin(admin.ModelAdmin):
-    list_display = ("message", "recipient", "sent_at", "status", "error_message")
-    search_fields = ("recipient__username", "message__text")
-    list_filter = ("status", "sent_at")
+    list_display = ("message", "recipient", "status", "sent_at", "error_message")
+    list_filter = ("status", "sent_at", "message")
+    search_fields = ("recipient__username", "recipient__user_id", "error_message")
     ordering = ("-sent_at",)
 
 

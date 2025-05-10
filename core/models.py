@@ -1,4 +1,3 @@
-
 from django.db import models
 
 def upload_to_payment(instance, filename):
@@ -51,7 +50,11 @@ class BroadcastMessage(models.Model):
         verbose_name_plural = "Рассылки"
 
     def __str__(self):
-        return f"Рассылка #{self.id} — {self.created_at.strftime('%d.%m.%Y %H:%M')}"
+        if self.created_at:
+            date_str = self.created_at.strftime('%d.%m.%Y %H:%M')
+        else:
+            date_str = "без даты"
+        return f"Рассылка #{self.id} — {date_str}"
 
 
 class BroadcastDelivery(models.Model):
