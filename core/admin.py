@@ -3,11 +3,13 @@ import csv
 import logging
 import time
 import traceback
+import json
 from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
+from telegram import InputMediaPhoto
 
 from .forms import BroadcastMessageForm
 from .models import (
@@ -15,6 +17,7 @@ from .models import (
     ClientAction,
     SupportMessage,
     BroadcastMessage,
+    BroadcastPhoto,
     BroadcastDelivery,
     PaymentUpload,
 )
@@ -51,6 +54,27 @@ class ClientActionAdmin(admin.ModelAdmin):
     ordering = ("-timestamp",)
 
 
+@admin.register(PaymentUpload)
+class PaymentUploadAdmin(admin.ModelAdmin):
+    list_display = ("client", "uploaded_at", "image_preview")
+    search_fields = ("client__username",)
+    list_filter = ("uploaded_at",)
+    ordering = ("-uploaded_at",)
+
+    def image_preview(self, obj):
+        if obj.file:
+            return format_html('<img src="{}" width="100" />', obj.file.url)
+        return ""
+    image_preview.short_description = "Превью"
+
+
+class BroadcastPhotoInline(admin.TabularInline):
+    model = BroadcastPhoto
+    extra = 1
+    fields = ("image", "uploaded_at",)
+    readonly_fields = ("uploaded_at",)
+
+
 @admin.register(SupportMessage)
 class SupportMessageAdmin(admin.ModelAdmin):
     list_display = ("client", "message", "timestamp")
@@ -67,7 +91,7 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
     list_filter = ("sent", "created_at")
     ordering = ("-created_at",)
     actions = ["export_csv"]
-    inlines = [BroadcastDeliveryInline]
+    inlines = [BroadcastDeliveryInline, BroadcastPhotoInline]
 
     def short_text(self, obj):
         return obj.text[:40] + "..." if len(obj.text) > 40 else obj.text
@@ -102,77 +126,101 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
 
     def send_broadcast(self, request, pk):
         from django.conf import settings
-        from telegram import Bot
+        from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
         from telegram.error import TelegramError, NetworkError
 
         msg = BroadcastMessage.objects.get(pk=pk)
         bot = Bot(token=settings.TELEGRAM_BOT_TOKEN_PRIVATE)
 
         success, fail = 0, 0
+        reply_markup = None
 
-        async def send_telegram_message(bot_instance, user_id, text):
-            await bot_instance.send_message(chat_id=user_id, text=text, parse_mode='HTML')
+        if msg.buttons_json:
+            try:
+                keyboard_data = json.loads(msg.buttons_json)
+                keyboard = [
+                    [InlineKeyboardButton(**btn) for btn in row]
+                    for row in keyboard_data
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+            except Exception as e:
+                messages.error(request, f"❌ Ошибка кнопок: {e}")
+                return redirect(reverse("admin:core_broadcastmessage_changelist"))
+
+        async def send_telegram_message(bot_instance, user_id, text, markup, photo_paths=None):
+            if photo_paths:
+                if len(photo_paths) == 1:
+                    with open(photo_paths[0], 'rb') as photo:
+                        await bot_instance.send_photo(
+                            chat_id=user_id,
+                            photo=photo,
+                            caption=text,
+                            reply_markup=markup,
+                            parse_mode='HTML'
+                        )
+                else:
+                    media = []
+                    for i, path in enumerate(photo_paths):
+                        with open(path, 'rb') as f:
+                            if i == 0:
+                                media.append(InputMediaPhoto(f.read(), caption=text, parse_mode='HTML'))
+                            else:
+                                media.append(InputMediaPhoto(f.read()))
+                    await bot_instance.send_media_group(chat_id=user_id, media=media)
+                    text_to_send = msg.text_after_media if msg.text_after_media else "\u200B"
+                    await bot_instance.send_message(
+                        chat_id=user_id,
+                        text=text_to_send,
+                        reply_markup=markup
+                    )
+            else:
+                await bot_instance.send_message(
+                    chat_id=user_id,
+                    text=text,
+                    reply_markup=markup,
+                    parse_mode='HTML'
+                )
 
         for user in msg.recipients.all():
-            print(f"📨 Отправка пользователю: {user.user_id} | @{user.username or '-'}")
-
             if not user.user_id:
-                delivery, _ = BroadcastDelivery.objects.get_or_create(
+                BroadcastDelivery.objects.update_or_create(
                     message=msg,
                     recipient=user,
                     defaults={'status': 'failed', 'error_message': 'Нет user_id'}
                 )
-                delivery.status = 'failed'
-                delivery.error_message = 'Нет user_id'
-                delivery.save()
                 fail += 1
                 continue
 
             try:
-                self.run_async(send_telegram_message(bot, user.user_id, msg.text))
+                photo_paths = [p.image.path for p in msg.photos.all()]
+                self.run_async(send_telegram_message(bot, user.user_id, msg.text, reply_markup, photo_paths))
 
-                delivery, created = BroadcastDelivery.objects.get_or_create(
+                BroadcastDelivery.objects.update_or_create(
                     message=msg,
                     recipient=user,
-                    defaults={'status': 'sent'}
+                    defaults={'status': 'sent', 'error_message': ''}
                 )
-                if not created:
-                    delivery.status = 'sent'
-                    delivery.error_message = ''
-                    delivery.save()
 
                 success += 1
                 time.sleep(0.3)
 
             except (NetworkError, TelegramError) as e:
                 error_msg = f"Telegram API error: {str(e)}"
-                print(f"❌ Ошибка Telegram: {error_msg}")
-
-                delivery, created = BroadcastDelivery.objects.get_or_create(
+                BroadcastDelivery.objects.update_or_create(
                     message=msg,
                     recipient=user,
                     defaults={'status': 'failed', 'error_message': error_msg}
                 )
-                if not created:
-                    delivery.status = 'failed'
-                    delivery.error_message = error_msg
-                    delivery.save()
                 fail += 1
 
             except Exception as e:
-                generic_error = f"{type(e).__name__}: {str(e)}"
-                print(f"🔥 Неизвестная ошибка: {generic_error}")
+                error_msg = f"{type(e).__name__}: {str(e)}"
                 traceback.print_exc()
-
-                delivery, created = BroadcastDelivery.objects.get_or_create(
+                BroadcastDelivery.objects.update_or_create(
                     message=msg,
                     recipient=user,
-                    defaults={'status': 'failed', 'error_message': generic_error}
+                    defaults={'status': 'failed', 'error_message': error_msg}
                 )
-                if not created:
-                    delivery.status = 'failed'
-                    delivery.error_message = generic_error
-                    delivery.save()
                 fail += 1
 
         msg.sent = True
@@ -196,25 +244,3 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
 
         return response
     export_csv.short_description = "📤 Экспортировать в CSV"
-
-
-@admin.register(BroadcastDelivery)
-class BroadcastDeliveryAdmin(admin.ModelAdmin):
-    list_display = ("message", "recipient", "status", "sent_at", "error_message")
-    list_filter = ("status", "sent_at", "message")
-    search_fields = ("recipient__username", "recipient__user_id", "error_message")
-    ordering = ("-sent_at",)
-
-
-@admin.register(PaymentUpload)
-class PaymentUploadAdmin(admin.ModelAdmin):
-    list_display = ("client", "uploaded_at", "image_preview")
-    search_fields = ("client__username",)
-    list_filter = ("uploaded_at",)
-    ordering = ("-uploaded_at",)
-
-    def image_preview(self, obj):
-        if obj.file:
-            return format_html('<img src="{}" width="100" />', obj.file.url)
-        return ""
-    image_preview.short_description = "Превью"

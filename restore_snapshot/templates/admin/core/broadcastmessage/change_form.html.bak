@@ -1,0 +1,74 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const addBtn = document.getElementById("add-button");
+    const container = document.getElementById("button-container");
+    const textsInput = document.getElementById("id_button_texts");
+    const urlsInput = document.getElementById("id_button_urls");
+
+    function updateHiddenFields() {
+        const texts = [];
+        const urls = [];
+        document.querySelectorAll(".button-row").forEach(row => {
+            const text = row.querySelector(".btn-text").value;
+            const url = row.querySelector(".btn-url").value;
+            if (text && url) {
+                texts.push(text);
+                urls.push(url);
+            }
+        });
+        textsInput.value = texts.join("|||");
+        urlsInput.value = urls.join("|||");
+    }
+
+    function createButtonRow(text = "", url = "") {
+        const row = document.createElement("div");
+        row.className = "button-row";
+        row.innerHTML = `
+            <input type="text" placeholder="Текст" class="btn-text" style="margin-right:5px;" value="${text}" />
+            <input type="url" placeholder="Ссылка" class="btn-url" style="margin-right:5px;" value="${url}" />
+            <button type="button" class="remove-btn">✖</button>
+        `;
+        row.querySelector(".btn-text").addEventListener("input", updateHiddenFields);
+        row.querySelector(".btn-url").addEventListener("input", updateHiddenFields);
+        row.querySelector(".remove-btn").addEventListener("click", () => {
+            row.remove();
+            updateHiddenFields();
+        });
+        container.appendChild(row);
+    }
+
+    const savedTexts = textsInput?.value?.split("|||") || [];
+    const savedUrls = urlsInput?.value?.split("|||") || [];
+    for (let i = 0; i < savedTexts.length; i++) {
+        if (savedTexts[i] && savedUrls[i]) {
+            createButtonRow(savedTexts[i], savedUrls[i]);
+        }
+    }
+
+    addBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        createButtonRow();
+    });
+
+    updateHiddenFields();
+});
+</script>
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+
+<input type="hidden" name="button_texts" id="id_button_texts" value="{{ adminform.form.initial.button_texts }}">
+<input type="hidden" name="button_urls" id="id_button_urls" value="{{ adminform.form.initial.button_urls }}">
+
+<div class="inline-group">
+    <h2>Кнопки</h2>
+    <div id="button-container"></div>
+    <button id="add-button" class="button">Добавить кнопку</button>
+</div>
+{% endblock %}

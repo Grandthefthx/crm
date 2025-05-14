@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block after_related_objects %}
+  {% if adminform.form.buttons_json.value %}
+    <div style="margin: 20px 0; padding: 10px; background: #f9f9f9; border: 1px solid #ccc;">
+      <h3>🔘 Кнопки</h3>
+      <pre>{{ adminform.form.buttons_json.value|safe }}</pre>
+    </div>
+  {% endif %}
+{% endblock %}

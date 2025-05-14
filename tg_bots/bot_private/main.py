@@ -43,23 +43,22 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-async def send_message_safe(bot, chat_id, text, **kwargs):
+async def send_message_safe(bot, chat_id, text, parse_mode='HTML', **kwargs):
     try:
-        await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode=parse_mode, **kwargs)
     except Forbidden:
         logger.warning(f"User {chat_id} blocked the bot.")
     except RetryAfter as e:
         wait_time = int(e.retry_after)
         logger.warning(f"Rate limit exceeded. Sleeping for {wait_time} sec.")
         await asyncio.sleep(wait_time)
-        return await send_message_safe(bot, chat_id, text, **kwargs)
+        return await send_message_safe(bot, chat_id, text, parse_mode=parse_mode, **kwargs)
     except BadRequest as e:
         logger.error(f"Bad request: {e}")
     except TelegramError as e:
         logger.exception(f"Telegram error: {e}")
     except Exception as e:
         logger.exception(f"Unexpected error: {e}")
-
 
 @sync_to_async
 def save_telegram_user(user):
@@ -115,34 +114,31 @@ def load_text(name: str) -> str:
 
 def main_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(" 🌊 О канале ", callback_data="about")],
-        [InlineKeyboardButton(" 💎 Подписка ", callback_data="payment")],
-        [InlineKeyboardButton("✉ Задать вопрос ", callback_data="support")]
+        [InlineKeyboardButton("Подробнее о канале 🐇", callback_data="about")],
+        [InlineKeyboardButton("Оплатить участие 🎫", callback_data="payment")],
+        [InlineKeyboardButton("Задать вопрос ❔", callback_data="support")]
     ])
-
 
 def about_menu(include_reviews=True):
     buttons = []
     if include_reviews:
-        buttons.append([InlineKeyboardButton("🌟 Отзывы ", callback_data="reviews")])
-    buttons.append([InlineKeyboardButton(" 💎 Подписка ", callback_data="payment")])
-    buttons.append([InlineKeyboardButton("⬅️ На главную ", callback_data="main")])
+        buttons.append([InlineKeyboardButton("Обратная связь 🌟", callback_data="reviews")])
+    buttons.append([InlineKeyboardButton("Оплатить участие 🎫", callback_data="payment")])
+    buttons.append([InlineKeyboardButton("На главную ⬅️", callback_data="main")])
     return InlineKeyboardMarkup(buttons)
-
 
 def payment_menu(exclude=None):
     buttons = []
     if exclude != "pay_tg":
-        buttons.append([InlineKeyboardButton("📲 Tribute ", callback_data="pay_tg")])
+        buttons.append([InlineKeyboardButton("Tribute", callback_data="pay_tg")])
     if exclude != "pay_card_ru":
-        buttons.append([InlineKeyboardButton(" 🎫 Карта ", callback_data="pay_card_ru")])
-    buttons.append([InlineKeyboardButton(" ⬅️ На главную ", callback_data="main")])
+        buttons.append([InlineKeyboardButton("Карта РФ", callback_data="pay_card_ru")])
+    buttons.append([InlineKeyboardButton("На главную ⬅️", callback_data="main")])
     return InlineKeyboardMarkup(buttons)
-
 
 def back_to_main():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⬅️ На главную", callback_data="main")]
+        [InlineKeyboardButton("На главную ⬅️", callback_data="main")]
     ])
 
 
@@ -152,9 +148,9 @@ async def start(update: Update, context: CallbackContext) -> None:
     await log_action(user.id, "start_private")
     await update.message.reply_text(
         load_text("main"),
-        reply_markup=main_menu()
+        reply_markup=main_menu(),
+        parse_mode='HTML'  # ✅
     )
-
 
 async def handle_main_menu(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -188,7 +184,6 @@ async def handle_main_menu(update: Update, context: CallbackContext) -> None:
     else:
         await send_message_safe(context.bot, query.message.chat_id, "⚠️ Неизвестная команда.", reply_markup=main_menu())
 
-
 async def handle_text(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     txt = update.message.text.strip()
@@ -196,9 +191,9 @@ async def handle_text(update: Update, context: CallbackContext) -> None:
     await log_action(user.id, f"support_message: {txt}")
     await update.message.reply_text(
         "✅ Вопрос получен. Мы свяжемся с вами в личных сообщениях.",
-        reply_markup=main_menu()
+        reply_markup=main_menu(),
+        parse_mode='HTML'  # ✅ добавлено
     )
-
 
 async def handle_media(update: Update, context: CallbackContext) -> None:
     message: Message = update.message
@@ -221,14 +216,15 @@ async def handle_media(update: Update, context: CallbackContext) -> None:
         await save_payment_upload(user.id, File(f))
 
     await log_action(user.id, f"uploaded_payment: {filename}")
-    await update.message.reply_text("✅ Чек получен. Мы проверим и свяжемся с вами.")
-
+    await update.message.reply_text(
+        "✅ Чек получен. Проверим и добавим в канал.",
+        parse_mode='HTML'  # ✅ добавлено на всякий случай
+    )
 
 async def error_handler(update: object, context: CallbackContext) -> None:
     logger.error(f"Ошибка: {context.error}", exc_info=context.error)
     if hasattr(update, 'effective_message') and update.effective_message:
         await update.effective_message.reply_text("⚠️ Произошла ошибка. Попробуйте снова.")
-
 
 def main() -> None:
     application = Application.builder().token(os.getenv('TELEGRAM_BOT_TOKEN_PRIVATE')).build()
@@ -240,7 +236,6 @@ def main() -> None:
 
     logger.info("Бот запущен...")
     application.run_polling()
-
 
 if __name__ == '__main__':
     main()

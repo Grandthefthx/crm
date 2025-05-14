@@ -1,0 +1,174 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Мониторинг сервера{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background-color: #121212;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    h1 {
+        font-size: 28px;
+        color: #4caf50;
+        margin-bottom: 1rem;
+    }
+
+    .card {
+        background: #1e1e1e;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+    }
+
+    .stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        font-size: 1.1rem;
+    }
+
+    .sections {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+    }
+
+    .section {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    h3 {
+        margin-bottom: 1rem;
+    }
+
+    ul {
+        list-style: none;
+        padding-left: 0;
+    }
+
+    li {
+        padding: 0.3rem 0;
+        border-bottom: 1px solid #333;
+    }
+
+    canvas {
+        background: #1a1a1a;
+        border-radius: 10px;
+        padding: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .stats {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+<h1>📊 Мониторинг сервера</h1>
+
+<div class="card stats">
+    <div><strong>CPU:</strong> <span id="cpu_val">--%</span></div>
+    <div><strong>RAM:</strong> <span id="ram_val">--%</span></div>
+    <div><strong>Uptime:</strong> <span id="uptime_val">--</span></div>
+</div>
+
+<div class="sections">
+    <div class="card section">
+        <h3 style="color: #00ff80;">🔝 Топ CPU</h3>
+        <ul id="top_cpu"></ul>
+    </div>
+    <div class="card section">
+        <h3 style="color: #00d0ff;">🔝 Топ RAM</h3>
+        <ul id="top_ram"></ul>
+    </div>
+</div>
+
+<div class="card">
+    <canvas id="chart" style="width: 100%; height: 300px;"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById("chart").getContext("2d");
+    const chart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [{
+                label: "CPU %",
+                borderColor: "#00ff00",
+                backgroundColor: "rgba(0,255,0,0.2)",
+                data: [],
+                tension: 0.4,
+                pointBackgroundColor: "#00ff00",
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { color: "#ccc" },
+                    grid: { color: "#333" }
+                },
+                x: {
+                    ticks: {
+                        color: "#ccc",
+                        callback: function(value, index) {
+                            return index % 6 === 0 ? this.getLabelForValue(value) : '';
+                        }
+                    },
+                    grid: { color: "#333" }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: "#fff" } },
+                tooltip: { enabled: true }
+            }
+        }
+    });
+
+    async function updateData() {
+        const res = await fetch("/adminka-193n/monitor/api/");
+        const data = await res.json();
+
+        const now = new Date();
+        const time = now.toLocaleTimeString();
+        const cpu = data.cpu;
+        const ram = data.ram;
+
+        document.getElementById("cpu_val").textContent = `${cpu}%`;
+        document.getElementById("ram_val").textContent = `${ram}%`;
+        document.getElementById("uptime_val").textContent = data.uptime;
+
+        chart.data.labels.push(time);
+        chart.data.datasets[0].data.push(cpu);
+        if (chart.data.labels.length > 180) {
+            chart.data.labels.shift();
+            chart.data.datasets[0].data.shift();
+        }
+        chart.update();
+
+        document.getElementById("top_cpu").innerHTML =
+            data.top_cpu.map(p =>
+                `<li><strong>#${p.pid}</strong> — ${p.name} (${p.cpu.toFixed(1)}%)</li>`
+            ).join("");
+
+        document.getElementById("top_ram").innerHTML =
+            data.top_ram.map(p =>
+                `<li><strong>#${p.pid}</strong> — ${p.name} (${(p.ram / 1024 / 1024).toFixed(1)} MB)</li>`
+            ).join("");
+    }
+
+    updateData();
+    setInterval(updateData, 5000);
+</script>
+{% endblock %}

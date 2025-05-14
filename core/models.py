@@ -12,6 +12,10 @@ class TelegramClient(models.Model):
     awaiting_support = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Клиент Telegram"
+        verbose_name_plural = "Клиенты Telegram"
+
     def __str__(self):
         return self.username or str(self.user_id)
 
@@ -20,6 +24,10 @@ class ClientAction(models.Model):
     client = models.ForeignKey(TelegramClient, on_delete=models.CASCADE, related_name='actions')
     action = models.CharField(max_length=100)
     timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Действие клиента"
+        verbose_name_plural = "Действия клиентов"
 
     def __str__(self):
         return f"{self.client.username or self.client.user_id}: {self.action} at {self.timestamp}"
@@ -40,10 +48,13 @@ class SupportMessage(models.Model):
 
 class BroadcastMessage(models.Model):
     text = models.TextField("Текст сообщения")
+    text_after_media = models.TextField("Текст после фото (если их много)", blank=True, null=True)
     comment = models.CharField("Комментарий", max_length=255, default="Без названия")
     recipients = models.ManyToManyField(TelegramClient, verbose_name="Получатели")
     created_at = models.DateTimeField(auto_now_add=True)
     sent = models.BooleanField(default=False)
+    buttons_json = models.TextField("Кнопки (JSON)", blank=True, null=True)
+    photo = models.ImageField(upload_to="broadcasts/", blank=True, null=True, verbose_name="Фото")
 
     class Meta:
         verbose_name = "Рассылка"
@@ -55,6 +66,19 @@ class BroadcastMessage(models.Model):
         else:
             date_str = "без даты"
         return f"Рассылка #{self.id} — {date_str}"
+
+
+class BroadcastPhoto(models.Model):
+    message = models.ForeignKey(BroadcastMessage, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to="broadcasts/photos/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Фото рассылки"
+        verbose_name_plural = "Фото рассылки"
+
+    def __str__(self):
+        return f"Фото к рассылке #{self.message.id}"
 
 
 class BroadcastDelivery(models.Model):
