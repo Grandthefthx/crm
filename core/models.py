@@ -1,7 +1,15 @@
 from django.db import models
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import json
+import os
+from django.conf import settings
+from pydub import AudioSegment
+from django.db import transaction
+
 
 def upload_to_payment(instance, filename):
     return f"uploads/{instance.client.user_id}/{filename}"
+
 
 class TelegramClient(models.Model):
     user_id = models.BigIntegerField(unique=True)
@@ -11,6 +19,7 @@ class TelegramClient(models.Model):
     bot_source = models.CharField(max_length=50, null=True, blank=True)
     awaiting_support = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_blocked = models.BooleanField(default=False, verbose_name="Заблокировал бота")
 
     class Meta:
         verbose_name = "Клиент Telegram"
@@ -22,7 +31,7 @@ class TelegramClient(models.Model):
 
 class ClientAction(models.Model):
     client = models.ForeignKey(TelegramClient, on_delete=models.CASCADE, related_name='actions')
-    action = models.CharField(max_length=100)
+    action = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -66,6 +75,16 @@ class BroadcastMessage(models.Model):
         else:
             date_str = "без даты"
         return f"Рассылка #{self.id} — {date_str}"
+
+    def get_reply_markup(self):
+        if not self.buttons_json:
+            return None
+        try:
+            data = json.loads(self.buttons_json)
+            keyboard = [[InlineKeyboardButton(**btn) for btn in row] for row in data]
+            return InlineKeyboardMarkup(keyboard)
+        except Exception:
+            return None
 
 
 class BroadcastPhoto(models.Model):
@@ -111,3 +130,45 @@ class PaymentUpload(models.Model):
 
     def __str__(self):
         return f"Чек от {self.client.username or self.client.user_id} — {self.uploaded_at.strftime('%d.%m.%Y %H:%M')}"
+
+
+class BroadcastAudio(models.Model):
+    message = models.ForeignKey(BroadcastMessage, on_delete=models.CASCADE, related_name="audios")
+    choice_number = models.PositiveSmallIntegerField()
+    file = models.FileField(upload_to='voice/')
+    mp3_file = models.FileField(upload_to='voice_mp3/', blank=True, null=True)
+    caption = models.TextField(blank=True, null=True)
+    custom_filename = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Название файла для отправки в Telegram (с расширением .mp3)"
+    )
+
+    def __str__(self):
+        return f"Audio {self.choice_number} for Broadcast #{self.message.id}"
+
+
+class BroadcastVote(models.Model):
+    message = models.ForeignKey(BroadcastMessage, on_delete=models.CASCADE, related_name="votes")
+    client = models.ForeignKey(TelegramClient, on_delete=models.CASCADE)
+    choice_number = models.PositiveSmallIntegerField()
+    voice_file = models.FileField(upload_to='voice_responses/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('message', 'client')
+
+    def __str__(self):
+        return f"Vote: {self.client} chose {self.choice_number} for #{self.message.id}"
+
+
+# async конвертация через celery
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=BroadcastAudio)
+def handle_broadcastaudio_post_save(sender, instance, created, **kwargs):
+    if created:
+        from core.tasks import convert_audio_to_mp3_task  # ← ленивый импорт
+        transaction.on_commit(lambda: convert_audio_to_mp3_task.delay(instance.id))

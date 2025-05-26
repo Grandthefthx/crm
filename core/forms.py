@@ -24,15 +24,14 @@ class BroadcastMessageForm(forms.ModelForm):
     text_after_media = forms.CharField(
         label="Текст после фото (если их много)",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 4,
-        "class": "vLargeTextField"})
+        widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"})
     )
 
     class Meta:
         model = BroadcastMessage
         fields = [
             "text", "text_after_media", "comment",
-            "recipients", "sent", "photo", "buttons_json"
+            "recipients", "sent", "buttons_json"
         ]
         widgets = {
             "buttons_json": forms.HiddenInput()
@@ -40,6 +39,9 @@ class BroadcastMessageForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if "photo" in self.fields:
+            del self.fields["photo"]
 
         self.fields["recipients"].queryset = TelegramClient.objects.order_by("bot_source")
         self.initial["button_texts"] = ""
@@ -100,3 +102,6 @@ class BroadcastMessageForm(forms.ModelForm):
             instance.save()
             self.save_m2m()
         return instance
+
+class BroadcastAttachForm(forms.Form):
+    broadcast = forms.ModelChoiceField(queryset=BroadcastMessage.objects.all(), label="Выберите рассылку")

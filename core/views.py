@@ -15,6 +15,18 @@ def metrics_api(request):
     ram = psutil.virtual_memory().percent
     uptime = datetime.datetime.now() - datetime.datetime.fromtimestamp(psutil.boot_time())
 
+    # Дисковая статистика
+    disk = psutil.disk_usage('/')
+    disk_total = round(disk.total / 1024 / 1024 / 1024, 1)  # ГБ
+    disk_used = round(disk.used / 1024 / 1024 / 1024, 1)
+    disk_free = round(disk.free / 1024 / 1024 / 1024, 1)
+    disk_percent = disk.percent
+
+    # IO статистика (байты с запуска)
+    io = psutil.disk_io_counters()
+    io_read_mb = round(io.read_bytes / 1024 / 1024, 1)
+    io_write_mb = round(io.write_bytes / 1024 / 1024, 1)
+
     # Инициализация, чтобы cpu_percent начал считать
     for proc in psutil.process_iter():
         try:
@@ -40,14 +52,17 @@ def metrics_api(request):
     top_mem = []
     for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
         try:
+            mem_bytes = proc.memory_info().rss
+            mem_mb = round(mem_bytes / 1024 / 1024, 1)
             top_mem.append({
                 "pid": proc.info['pid'],
                 "name": proc.info['name'],
-                "mem": round(proc.info['memory_percent'], 1)
+                "mem_mb": mem_mb,
+                "mem_percent": round(proc.info['memory_percent'], 1)
             })
         except Exception:
             continue
-    top_mem = sorted(top_mem, key=lambda p: p["mem"], reverse=True)[:5]
+    top_mem = sorted(top_mem, key=lambda p: p["mem_mb"], reverse=True)[:5]
 
     return JsonResponse({
         "cpu": cpu,
@@ -55,4 +70,10 @@ def metrics_api(request):
         "uptime": str(uptime).split('.')[0],
         "top_cpu": top_cpu,
         "top_mem": top_mem,
+        "disk_total": disk_total,
+        "disk_used": disk_used,
+        "disk_free": disk_free,
+        "disk_percent": disk_percent,
+        "io_read_mb": io_read_mb,
+        "io_write_mb": io_write_mb,
     })
