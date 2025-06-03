@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+
+  <form method="post">{% csrf_token %}
+    {{ form.as_p }}
+
+    <p>Клиенты для добавления:</p>
+    <ul>
+    {% for client in clients %}
+      <li>
+        <label>
+          <input type="checkbox" name="_selected_action" value="{{ client.pk }}" checked>
+          {{ client }}
+        </label>
+      </li>
+    {% endfor %}
+    </ul>
+
+    <input type="hidden" name="action" value="attach_to_broadcast">
+    <button type="submit" name="apply" class="default">📨 Добавить</button>
+    <a href="." class="button cancel-link">Отмена</a>
+  </form>
+{% endblock %}

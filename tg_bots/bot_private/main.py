@@ -35,7 +35,7 @@ REVIEW_MEDIA_DIR = BASE_DIR / "tg_bots" / "bot_private" / "media"
 ABOUT_MEDIA_DIR = BASE_DIR / "tg_bots" / "bot_private" / "media" / "about"   # <--- добавили для фото о канале
 UPLOADS_ROOT = BASE_DIR / "media" / "uploads"
 
-log_path = BASE_DIR / "bot.log"
+log_path = BASE_DIR / "logs" / "bot.log"
 logging.basicConfig(
     handlers=[logging.FileHandler(log_path)],
     format="%(asctime)s — %(levelname)s — %(message)s",
