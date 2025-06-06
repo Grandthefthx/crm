@@ -35,7 +35,3 @@ python manage.py runbot_private  # runs tg_bots.bot_private
 ```
 
 Each command reads the required tokens from the environment variables described above.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
