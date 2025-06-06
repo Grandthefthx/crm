@@ -17,10 +17,13 @@ uploads/
 logs/
 *.log
 nohup.out
+
+# Ignore any folder named "texts" and its contents
+**/texts/
+
+# Specific bot media folders
 tg_bots/bot_private/media/
-tg_bots/bot_private/texts/
 tg_bots/bot_public/media/
-tg_bots/bot_public/texts/
 
 # Environment
 .env
