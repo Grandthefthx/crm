@@ -71,8 +71,13 @@ async def handle_vote_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception:
         pass
 
+    mp3_path = None
+    if audio and audio.mp3_file and audio.mp3_file.name:
+        try:
+            mp3_path = audio.mp3_file.path
+        except ValueError:
+            mp3_path = None
     if audio and audio.mp3_file:
-        mp3_path = audio.mp3_file.path if hasattr(audio.mp3_file, "path") else None
         # >>> Главное отличие здесь <<<
         # Используется только то имя, что указано в custom_filename (даже без .mp3), если оно есть.
         if audio.custom_filename:
@@ -81,7 +86,8 @@ async def handle_vote_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             filename = os.path.basename(mp3_path)
         else:
             filename = None
-        logger.info(f"📎 Отправка mp3-аудио: {mp3_path}, exists={os.path.exists(mp3_path)}, filename={filename}")
+        exists_flag = os.path.exists(mp3_path) if mp3_path else False
+        logger.info(f"📎 Отправка mp3-аудио: {mp3_path}, exists={exists_flag}, filename={filename}")
         if mp3_path and os.path.exists(mp3_path):
             with open(mp3_path, "rb") as f:
                 await context.bot.send_audio(
