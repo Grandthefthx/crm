@@ -19,11 +19,11 @@ Create a `.env` file in the project root or export these variables in your shell
 - `SECRET_KEY` – Django secret key.
 - `DEBUG` – set to `True` or `False` (default is `True`).
 - `ALLOWED_HOSTS` – comma separated list of allowed hosts.
-- `DB_NAME` – (optional) PostgreSQL database name, default `crm_db`.
-- `DB_USER` – (optional) PostgreSQL user, default `grand21`.
+- `DB_NAME` – PostgreSQL database name.
+- `DB_USER` – PostgreSQL user.
 - `DB_PASSWORD` – password for the PostgreSQL user.
-- `DB_HOST` – (optional) database host, default `localhost`.
-- `DB_PORT` – (optional) database port, default `5432`.
+- `DB_HOST` – database host.
+- `DB_PORT` – database port.
 - `TELEGRAM_BOT_TOKEN` – token for the public bot.
 - `TELEGRAM_BOT_TOKEN_PRIVATE` – token for the private bot.
 - `CELERY_BROKER_URL` – (optional) URL of the Celery broker, default `redis://127.0.0.1:6379/0`.
