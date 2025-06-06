@@ -43,4 +43,4 @@ Thumbs.db
 # VS Code/etc
 .vscode/
 .idea/
-ystemctl*
+systemctl*
