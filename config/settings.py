@@ -77,14 +77,20 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 if not DB_PASSWORD:
     raise ValueError("DB_PASSWORD is missing! Please add it to .env file.")
 
+# Database configuration with environment variable overrides
+DB_NAME = os.getenv("DB_NAME", "crm_db")
+DB_USER = os.getenv("DB_USER", "grand21")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "crm_db",
-        "USER": "grand21",
+        "NAME": DB_NAME,
+        "USER": DB_USER,
         "PASSWORD": DB_PASSWORD,
-        "HOST": "localhost",
-        "PORT": "5432",
+        "HOST": DB_HOST,
+        "PORT": DB_PORT,
     }
 }
 
