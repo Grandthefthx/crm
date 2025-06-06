@@ -1,11 +1,21 @@
 {% extends "admin/change_form.html" %}
 {% load static %}
 
+{% block extrahead %}
+{{ block.super }}
+<style>
+    #button-builder { margin-top: 1em; }
+    .button-row { display: flex; gap: 5px; margin-bottom: 5px; }
+    .button-row input, .button-row select { padding: 4px; }
+</style>
+<script src="{% static 'js/buttons_widget.js' %}"></script>
+{% endblock %}
+
 {% block after_related_objects %}
-  {% if adminform.form.buttons_json.value %}
-    <div style="margin: 20px 0; padding: 10px; background: #f9f9f9; border: 1px solid #ccc;">
-      <h3>🔘 Кнопки</h3>
-      <pre>{{ adminform.form.buttons_json.value|safe }}</pre>
-    </div>
-  {% endif %}
+<div>
+    <h3>Кнопки для рассылки</h3>
+    <div id="button-builder"></div>
+    <button type="button" id="add-button">Добавить кнопку</button>
+</div>
+{{ block.super }}
 {% endblock %}
