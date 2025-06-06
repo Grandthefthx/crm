@@ -17,6 +17,8 @@ uploads/
 logs/
 *.log
 nohup.out
+tg_bots/bot_private/media/
+tg_bots/bot_private/texts/
 
 # Environment
 .env
