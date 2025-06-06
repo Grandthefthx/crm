@@ -35,21 +35,3 @@ python manage.py runbot_private  # runs tg_bots.bot_private
 ```
 
 Each command reads the required tokens from the environment variables described above.
-
-## Running the admin
-
-The project provides a custom Django admin interface whose configuration lives in
-`core/admin.py`. To use it locally you first need a superuser:
-
-```bash
-python manage.py createsuperuser
-```
-
-Then start the development server:
-
-```bash
-python manage.py runserver
-```
-
-Visit `http://127.0.0.1:8000/adminka-193n/` in your browser and log in with the
-credentials created above to access the admin site.
