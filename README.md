@@ -16,6 +16,11 @@ This Django project contains a small CRM system with two Telegram bots for commu
 
 Create a `.env` file in the project root or export these variables in your shell:
 
+```
+cp .env.example .env
+# then edit .env and set the values
+```
+
 - `SECRET_KEY` – Django secret key.
 - `DEBUG` – set to `True` or `False` (default is `True`).
 - `ALLOWED_HOSTS` – comma separated list of allowed hosts.
