@@ -73,15 +73,25 @@ WSGI_APPLICATION = "config.wsgi.application"
 # ------------------------------------------------------------------------------
 #  БАЗА ДАННЫХ
 # ------------------------------------------------------------------------------
+DB_NAME = os.getenv("DB_NAME")
+if not DB_NAME:
+    raise ValueError("DB_NAME is missing! Please add it to .env file.")
+
+DB_USER = os.getenv("DB_USER")
+if not DB_USER:
+    raise ValueError("DB_USER is missing! Please add it to .env file.")
+
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 if not DB_PASSWORD:
     raise ValueError("DB_PASSWORD is missing! Please add it to .env file.")
 
-# Database configuration with environment variable overrides
-DB_NAME = os.getenv("DB_NAME", "crm_db")
-DB_USER = os.getenv("DB_USER", "grand21")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
+DB_HOST = os.getenv("DB_HOST")
+if not DB_HOST:
+    raise ValueError("DB_HOST is missing! Please add it to .env file.")
+
+DB_PORT = os.getenv("DB_PORT")
+if not DB_PORT:
+    raise ValueError("DB_PORT is missing! Please add it to .env file.")
 
 DATABASES = {
     "default": {
