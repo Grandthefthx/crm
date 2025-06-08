@@ -32,7 +32,8 @@ from django.core.files.base import ContentFile
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 TEXT_DIR = BASE_DIR / "tg_bots" / "bot_private" / "texts"
 REVIEW_MEDIA_DIR = BASE_DIR / "tg_bots" / "bot_private" / "media"
-ABOUT_MEDIA_DIR = BASE_DIR / "tg_bots" / "bot_private" / "media" / "about"   # <--- добавили для фото о канале
+ABOUT_MEDIA_DIR = BASE_DIR / "tg_bots" / "bot_private" / "media" / "about"
+TRANSFORM_FEEDBACK_MEDIA_DIR = BASE_DIR / "tg_bots" / "bot_private" / "media" / "transform_feedback"
 UPLOADS_ROOT = BASE_DIR / "media" / "uploads"
 
 log_path = BASE_DIR / "logs" / "bot.log"
@@ -53,17 +54,32 @@ def load_text(name: str) -> str:
 def main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Подробнее о канале 🐇", callback_data="about")],
-        [InlineKeyboardButton("Оплатить участие 🎫", callback_data="payment")],
-        [InlineKeyboardButton("Задать вопрос ❔", callback_data="support")],
+        [InlineKeyboardButton("Оплатить участие 🌻", callback_data="payment")],
         [InlineKeyboardButton("Получить послание 💌", callback_data="get_message")],
         [InlineKeyboardButton("В открытый канал ✨", url="https://t.me/soul_evolucion")],
+        [InlineKeyboardButton("Интенсив 🔥Трансформация энергии 🔥", callback_data="transform")],
+        [InlineKeyboardButton("Задать вопрос ❔", callback_data="support")],
+    ])
+
+def transform_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Узнать подробнее 🐇", callback_data="transform_detail")],
+        [InlineKeyboardButton("Отзывы 🌟", callback_data="transform_feed")],
+        [InlineKeyboardButton("Участвовать 🔥", callback_data="transform_go")],
+        [InlineKeyboardButton("⬅️ На главную", callback_data="main")],
+    ])
+
+def transform_go_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Получить реквизиты", url="https://t.me/soul_evolucion_care")],
+        [InlineKeyboardButton("⬅️ Назад", callback_data="transform")],
     ])
 
 def about_menu(include_reviews: bool = True) -> InlineKeyboardMarkup:
     buttons = []
     if include_reviews:
         buttons.append([InlineKeyboardButton("Обратная связь 🌟", callback_data="reviews")])
-    buttons.append([InlineKeyboardButton("Оплатить участие 🎫", callback_data="payment")])
+    buttons.append([InlineKeyboardButton("Оплатить участие 🌻", callback_data="payment")])
     buttons.append([InlineKeyboardButton("⬅️ На главную", callback_data="main")])
     return InlineKeyboardMarkup(buttons)
 
@@ -125,26 +141,26 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await create_client_action(client, f"clicked_{data}")
 
     if data == "about":
-        # --- ДОБАВЛЕНО: отправка медиагруппы с фото ---
-        about_media = [
-            InputMediaPhoto(open(fp, "rb"))
-            for fp in (ABOUT_MEDIA_DIR / f"about{i}.jpg" for i in range(1, 8))
-            if fp.exists()
-        ]
-        if about_media:
-            await context.bot.send_media_group(chat_id=query.message.chat_id, media=about_media)
-        # --- как и раньше: текст ---
+        media = []
+        for i in range(1, 8):
+            path = ABOUT_MEDIA_DIR / f"about{i}.jpg"
+            if path.exists():
+                with open(path, "rb") as f:
+                    media.append(InputMediaPhoto(f.read()))
+        if media:
+            await context.bot.send_media_group(chat_id=query.message.chat_id, media=media)
         await query.message.reply_text(load_text("about"), reply_markup=about_menu(), parse_mode="HTML")
     elif data == "payment":
         await query.message.reply_text(load_text("payment"), reply_markup=payment_menu(), parse_mode="HTML")
     elif data == "support":
         await query.message.reply_text(load_text("support"), reply_markup=back_to_main(), parse_mode="HTML")
     elif data == "reviews":
-        media = [
-            InputMediaPhoto(open(fp, "rb"))
-            for fp in (REVIEW_MEDIA_DIR / f"re{i}.jpg" for i in range(1, 9))
-            if fp.exists()
-        ]
+        media = []
+        for i in range(1, 9):
+            path = REVIEW_MEDIA_DIR / f"re{i}.jpg"
+            if path.exists():
+                with open(path, "rb") as f:
+                    media.append(InputMediaPhoto(f.read()))
         if media:
             await context.bot.send_media_group(chat_id=query.message.chat_id, media=media)
         await query.message.reply_text("🌟 Обратная связь подписчиков 🌟", reply_markup=about_menu(False), parse_mode="HTML")
@@ -154,18 +170,31 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(load_text("payment_card_ru"), reply_markup=payment_menu("pay_card_ru"), parse_mode="HTML")
     elif data == "main":
         await query.message.reply_text(load_text("main"), reply_markup=main_menu(), parse_mode="HTML")
+    elif data == "transform":
+        await query.message.reply_text(load_text("transform"), reply_markup=transform_menu(), parse_mode="HTML")
+    elif data == "transform_detail":
+        await query.message.reply_text(load_text("transform_detail"), reply_markup=transform_menu(), parse_mode="HTML")
+    elif data == "transform_feed":
+        media = []
+        for name in ["feed1.png", "feed2.png"]:
+            path = TRANSFORM_FEEDBACK_MEDIA_DIR / name
+            if path.exists():
+                with open(path, "rb") as f:
+                    media.append(InputMediaPhoto(f.read()))
+        if media:
+            await context.bot.send_media_group(chat_id=query.message.chat_id, media=media)
+        await query.message.reply_text(load_text("transform_feed"), reply_markup=transform_menu(), parse_mode="HTML")
+    elif data == "transform_go":
+        await query.message.reply_text(load_text("transform_go"), reply_markup=transform_go_menu(), parse_mode="HTML")
     elif data == "get_message":
         bm = await get_main_broadcast()
         if not bm:
             await query.message.reply_text("Послания сейчас нет.", reply_markup=main_menu(), parse_mode="HTML")
             return
-
         audios = list(await sync_to_async(lambda: list(bm.audios.all().order_by("choice_number")))())
         if not audios:
             await query.message.reply_text("Аудиофайлы для послания не найдены.", reply_markup=main_menu(), parse_mode="HTML")
             return
-
-        # Кнопки с цифрами (одна строка: 1 2 3 4 5)
         buttons = [[
             InlineKeyboardButton(str(a.choice_number), callback_data=f"vote:{a.choice_number}:{bm.id}")
             for a in audios
@@ -175,7 +204,6 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode="HTML"
         )
-        return
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -220,7 +248,7 @@ def main():
     app = ApplicationBuilder().token(os.getenv("TELEGRAM_BOT_TOKEN_PRIVATE")).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_vote_callback, pattern=r"^vote:"))
-    app.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r"^(about|payment|support|reviews|pay_tg|pay_card_ru|main|get_message)$"))
+    app.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r"^(about|payment|support|reviews|pay_tg|pay_card_ru|main|get_message|transform|transform_detail|transform_feed|transform_go)$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_media))
     app.add_error_handler(error_handler)
