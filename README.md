@@ -44,3 +44,11 @@ python manage.py runbot_private  # runs tg_bots.bot_private
 ```
 
 Each command reads the required tokens from the environment variables described above.
+
+## Running the Celery worker
+
+To process broadcast tasks and handle conversions, start a Celery worker:
+
+```bash
+celery -A config worker -l info
+```
