@@ -54,19 +54,20 @@ def load_text(name: str) -> str:
 def main_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Подробнее о канале 🐇", callback_data="about")],
-        [InlineKeyboardButton("Оплатить участие 🌻", callback_data="payment")],
+        [InlineKeyboardButton("Оплатить участие 💳", callback_data="payment")],
         [InlineKeyboardButton("Получить послание 💌", callback_data="get_message")],
         [InlineKeyboardButton("В открытый канал ✨", url="https://t.me/soul_evolucion")],
-        [InlineKeyboardButton("Интенсив 🔥Трансформация энергии 🔥", callback_data="transform")],
+        [InlineKeyboardButton("🔥 Интенсив Трансформация энергии 🔥", callback_data="transform")],
         [InlineKeyboardButton("Задать вопрос ❔", callback_data="support")],
     ])
 
-def transform_menu() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Узнать подробнее 🐇", callback_data="transform_detail")],
-        [InlineKeyboardButton("Участвовать 🔥", callback_data="transform_go")],
-        [InlineKeyboardButton("⬅️ На главную", callback_data="main")],
-    ])
+def transform_menu(include_detail: bool = True) -> InlineKeyboardMarkup:
+    buttons = []
+    if include_detail:
+        buttons.append([InlineKeyboardButton("Узнать подробнее 🐇", callback_data="transform_detail")])
+    buttons.append([InlineKeyboardButton("Участвовать 🔥", callback_data="transform_go")])
+    buttons.append([InlineKeyboardButton("⬅️ На главную", callback_data="main")])
+    return InlineKeyboardMarkup(buttons)
 
 def transform_go_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
@@ -78,7 +79,7 @@ def about_menu(include_reviews: bool = True) -> InlineKeyboardMarkup:
     buttons = []
     if include_reviews:
         buttons.append([InlineKeyboardButton("Обратная связь 🌟", callback_data="reviews")])
-    buttons.append([InlineKeyboardButton("Оплатить участие 🌻", callback_data="payment")])
+    buttons.append([InlineKeyboardButton("Оплатить участие 💳", callback_data="payment")])
     buttons.append([InlineKeyboardButton("⬅️ На главную", callback_data="main")])
     return InlineKeyboardMarkup(buttons)
 
@@ -172,7 +173,7 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "transform":
         await query.message.reply_text(load_text("transform"), reply_markup=transform_menu(), parse_mode="HTML")
     elif data == "transform_detail":
-        await query.message.reply_text(load_text("transform_detail"), reply_markup=transform_menu(), parse_mode="HTML")
+        await query.message.reply_text(load_text("transform_detail"), reply_markup=transform_menu(include_detail=False), parse_mode="HTML")
     elif data == "transform_go":
         await query.message.reply_text(load_text("transform_go"), reply_markup=transform_go_menu(), parse_mode="HTML")
     elif data == "get_message":
