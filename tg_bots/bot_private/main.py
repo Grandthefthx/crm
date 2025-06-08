@@ -64,7 +64,6 @@ def main_menu() -> InlineKeyboardMarkup:
 def transform_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Узнать подробнее 🐇", callback_data="transform_detail")],
-        [InlineKeyboardButton("Отзывы 🌟", callback_data="transform_feed")],
         [InlineKeyboardButton("Участвовать 🔥", callback_data="transform_go")],
         [InlineKeyboardButton("⬅️ На главную", callback_data="main")],
     ])
@@ -174,16 +173,6 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(load_text("transform"), reply_markup=transform_menu(), parse_mode="HTML")
     elif data == "transform_detail":
         await query.message.reply_text(load_text("transform_detail"), reply_markup=transform_menu(), parse_mode="HTML")
-    elif data == "transform_feed":
-        media = []
-        for name in ["feed1.png", "feed2.png"]:
-            path = TRANSFORM_FEEDBACK_MEDIA_DIR / name
-            if path.exists():
-                with open(path, "rb") as f:
-                    media.append(InputMediaPhoto(f.read()))
-        if media:
-            await context.bot.send_media_group(chat_id=query.message.chat_id, media=media)
-        await query.message.reply_text(load_text("transform_feed"), reply_markup=transform_menu(), parse_mode="HTML")
     elif data == "transform_go":
         await query.message.reply_text(load_text("transform_go"), reply_markup=transform_go_menu(), parse_mode="HTML")
     elif data == "get_message":
@@ -248,7 +237,7 @@ def main():
     app = ApplicationBuilder().token(os.getenv("TELEGRAM_BOT_TOKEN_PRIVATE")).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_vote_callback, pattern=r"^vote:"))
-    app.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r"^(about|payment|support|reviews|pay_tg|pay_card_ru|main|get_message|transform|transform_detail|transform_feed|transform_go)$"))
+    app.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r"^(about|payment|support|reviews|pay_tg|pay_card_ru|main|get_message|transform|transform_detail|transform_go)$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_media))
     app.add_error_handler(error_handler)
