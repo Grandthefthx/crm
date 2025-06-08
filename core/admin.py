@@ -28,11 +28,14 @@ from .models import (
 )
 
 logger = logging.getLogger("broadcast")
-logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
-logger.addHandler(handler)
-logger.info("✅ Логгер инициализирован в stdout")
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    logger.info("✅ Логгер инициализирован в stdout")
 
 
 class BroadcastDeliveryInline(admin.TabularInline):
