@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from telegram import Bot
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 bot = Bot(token=settings.TELEGRAM_BOT_TOKEN_PRIVATE)
 
@@ -15,5 +18,5 @@ async def _send_broadcast(broadcast):
             await bot.send_message(chat_id=client.user_id, text=broadcast.text)
             count += 1
         except Exception as e:
-            print(f"Ошибка при отправке {client.user_id}: {e}")
+            logger.error(f"Ошибка при отправке {client.user_id}: {e}")
     return count

@@ -1,8 +1,11 @@
 import os
+import logging
 from celery import Celery
 
 # Установка переменной окружения Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+logger = logging.getLogger(__name__)
 
 app = Celery("crm")
 
@@ -14,4 +17,4 @@ app.autodiscover_tasks()
 
 @app.task(bind=True)
 def debug_task(self):
-    print(f"Request: {self.request!r}")
+    logger.info(f"Request: {self.request!r}")
