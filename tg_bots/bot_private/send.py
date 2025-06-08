@@ -13,8 +13,13 @@ def send_broadcast_message(broadcast):
 
 async def _send_broadcast(broadcast):
     count = 0
+    videos = list(broadcast.videos.all())
     for client in broadcast.recipients.all():
         try:
+            for video in videos:
+                with open(video.file.path, "rb") as f:
+                    await bot.send_video(chat_id=client.user_id, video=f)
+                    await asyncio.sleep(1)
             await bot.send_message(chat_id=client.user_id, text=broadcast.text)
             count += 1
         except Exception as e:

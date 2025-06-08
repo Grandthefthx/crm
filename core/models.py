@@ -100,6 +100,19 @@ class BroadcastPhoto(models.Model):
         return f"Фото к рассылке #{self.message.id}"
 
 
+class BroadcastVideo(models.Model):
+    message = models.ForeignKey(BroadcastMessage, on_delete=models.CASCADE, related_name="videos")
+    file = models.FileField(upload_to="broadcasts/videos/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Видео рассылки"
+        verbose_name_plural = "Видео рассылки"
+
+    def __str__(self):
+        return f"Видео к рассылке #{self.message.id}"
+
+
 class BroadcastDelivery(models.Model):
     message = models.ForeignKey(BroadcastMessage, on_delete=models.CASCADE, related_name='deliveries')
     recipient = models.ForeignKey(TelegramClient, on_delete=models.CASCADE)

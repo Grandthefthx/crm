@@ -8,7 +8,7 @@ from celery import shared_task
 from django.conf import settings
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.request import HTTPXRequest
-from core.models import BroadcastMessage, BroadcastDelivery, BroadcastAudio
+from core.models import BroadcastMessage, BroadcastDelivery, BroadcastAudio, BroadcastVideo
 from pydub import AudioSegment
 
 logger = logging.getLogger("broadcast")
@@ -71,6 +71,14 @@ def send_broadcast(self, broadcast_id: int):
                 token=settings.TELEGRAM_BOT_TOKEN_PRIVATE,
                 request=HTTPXRequest(connect_timeout=10, read_timeout=30),
             )
+
+            for video in bm.videos.all():
+                with open(video.file.path, "rb") as f:
+                    _sync_send(
+                        bot.send_video(chat_id=client.user_id, video=f)
+                    )
+                    time.sleep(1)
+
             coro = bot.send_message(
                 chat_id=client.user_id,
                 text=bm.text,

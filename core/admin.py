@@ -19,6 +19,7 @@ from .models import (
     BroadcastDelivery,
     BroadcastMessage,
     BroadcastPhoto,
+    BroadcastVideo,
     BroadcastAudio,
     BroadcastVote,
     ClientAction,
@@ -50,6 +51,13 @@ class BroadcastPhotoInline(admin.TabularInline):
     model = BroadcastPhoto
     extra = 1
     fields = ("image", "uploaded_at")
+    readonly_fields = ("uploaded_at",)
+
+
+class BroadcastVideoInline(admin.TabularInline):
+    model = BroadcastVideo
+    extra = 1
+    fields = ("file", "uploaded_at")
     readonly_fields = ("uploaded_at",)
 
 
@@ -177,6 +185,7 @@ class BroadcastMessageAdmin(admin.ModelAdmin):
     inlines = [
         BroadcastDeliveryInline,
         BroadcastPhotoInline,
+        BroadcastVideoInline,
         BroadcastAudioInline,
         BroadcastVoteInline,
     ]

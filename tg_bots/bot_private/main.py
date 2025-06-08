@@ -207,8 +207,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message: Message = update.message
     user = message.from_user
-    file_id = message.document.file_id if message.document else message.photo[-1].file_id
-    tg_file = await context.bot.get_file(file_id)
+    if message.video:
+        tg_file = await context.bot.get_file(message.video.file_id)
+        is_video = True
+    elif message.document:
+        tg_file = await context.bot.get_file(message.document.file_id)
+        is_video = message.document.mime_type.startswith("video") if message.document.mime_type else False
+    else:
+        tg_file = await context.bot.get_file(message.photo[-1].file_id)
+        is_video = False
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     original = tg_file.file_path.split("/")[-1]
@@ -222,8 +229,9 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     client = await get_client(user.id)
     if client:
-        with open(filepath, "rb") as f:
-            await create_payment_upload(client, f, filename)
+        if not is_video:
+            with open(filepath, "rb") as f:
+                await create_payment_upload(client, f, filename)
         await create_client_action(client, f"uploaded_payment: {filename}")
 
     await update.message.reply_text("✅ Чек получен. Проверим и добавим в канал.", parse_mode="HTML")
@@ -239,7 +247,15 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_vote_callback, pattern=r"^vote:"))
     app.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r"^(about|payment|support|reviews|pay_tg|pay_card_ru|main|get_message|transform|transform_detail|transform_go)$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_media))
+    app.add_handler(
+        MessageHandler(
+            filters.PHOTO
+            | filters.Document.IMAGE
+            | filters.VIDEO
+            | filters.Document.VIDEO,
+            handle_media,
+        )
+    )
     app.add_error_handler(error_handler)
     logger.info("Бот запущен (async)")
     app.run_polling()
