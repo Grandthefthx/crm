@@ -71,7 +71,6 @@ def transform_menu(include_detail: bool = True) -> InlineKeyboardMarkup:
 
 def transform_go_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Получить реквизиты", url="https://t.me/soul_evolucion_care")],
         [InlineKeyboardButton("⬅️ Назад", callback_data="transform")],
     ])
 
