@@ -1,6 +1,9 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.csrf import csrf_exempt
+from .models import TelegramClient
+import json
 import psutil
 import datetime
 import time
@@ -77,3 +80,24 @@ def metrics_api(request):
         "io_read_mb": io_read_mb,
         "io_write_mb": io_write_mb,
     })
+
+
+@csrf_exempt
+def check_access_view(request):
+    """API endpoint to verify course access for a Telegram user."""
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+
+    user_id = payload.get("user_id")
+    has_access = False
+    if user_id is not None:
+        has_access = TelegramClient.objects.filter(
+            user_id=user_id,
+            is_course_paid=True,
+        ).exists()
+
+    if has_access:
+        return JsonResponse({"access": True})
+    return JsonResponse({"access": False}, status=403)
