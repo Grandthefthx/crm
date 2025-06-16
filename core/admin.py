@@ -30,9 +30,7 @@ from .models import (
 logger = logging.getLogger("broadcast")
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
     logger.info("✅ Логгер инициализирован в stdout")
@@ -99,11 +97,12 @@ class TelegramClientAdmin(admin.ModelAdmin):
         "created_at",
         "bot_source",
         "is_blocked",
+        "is_course_paid",  # ← исправлено
         "broadcast_count",
         "last_broadcasts",
     )
+    list_filter = ("bot_source", "created_at", "is_blocked", "is_course_paid")  # ← исправлено
     search_fields = ("username", "first_name", "last_name", "user_id")
-    list_filter = ("bot_source", "created_at", "is_blocked")
     inlines = [BroadcastDeliveryInline]
     ordering = ("-created_at",)
 
@@ -113,10 +112,7 @@ class TelegramClientAdmin(admin.ModelAdmin):
     broadcast_count.short_description = "Получено рассылок"
 
     def last_broadcasts(self, obj):
-        deliveries = (
-            obj.broadcastdelivery_set.select_related("message")
-            .order_by("-sent_at")[:3]
-        )
+        deliveries = obj.broadcastdelivery_set.select_related("message").order_by("-sent_at")[:3]
         if not deliveries:
             return "—"
         return format_html(

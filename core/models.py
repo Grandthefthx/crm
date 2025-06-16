@@ -20,6 +20,7 @@ class TelegramClient(models.Model):
     awaiting_support = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     is_blocked = models.BooleanField(default=False, verbose_name="Заблокировал бота")
+    is_course_paid = models.BooleanField(default=False, verbose_name="Доступ к курсу")
 
     class Meta:
         verbose_name = "Клиент Telegram"
@@ -170,5 +171,5 @@ from django.dispatch import receiver
 @receiver(post_save, sender=BroadcastAudio)
 def handle_broadcastaudio_post_save(sender, instance, created, **kwargs):
     if created:
-        from core.tasks import convert_audio_to_mp3_task  # ← ленивый импорт
+        from core.tasks import convert_audio_to_mp3_task
         transaction.on_commit(lambda: convert_audio_to_mp3_task.delay(instance.id))
